@@ -1,39 +1,69 @@
 import io
 import streamlit as st
 from PIL import Image
-# יבוא של רכיב החיתוך הנייד
-from streamlit_image_cropper import st_cropper
 
-st.set_page_config(
-    page_title="חיתוך סטיקר עם מסגרת דינמית", layout="centered"
-)
+st.set_page_config(page_title="חותך הסטיקרים שלי", layout="centered")
 
-st.title("✂️ חיתוך סטיקר מותאם אישית")
-st.write(
-    "העלה תמונה, והשתמש באצבע כדי להזיז, להגדיל או להקטין את מסגרת החיתוך סביב הסטיקר הנבחר!"
-)
+st.title("✂️ חותך הסטיקרים לנייד")
+st.write("העלה תמונה, כוונן את האחוזים עם האצבע, ושמור את הסטיקר!")
 
-# העלאת תמונה מהטלפון
+# העלאת קובץ מהגלריה או המצלמה של הטלפון
 uploaded_file = st.file_uploader(
     "בחר תמונת סטיקרים:", type=["jpg", "jpeg", "png"]
 )
 
 if uploaded_file is not None:
-    # פתיחת התמונה בעזרת Pillow
-    img = Image.open(uploaded_file)
+    # פתיחת התמונה
+    image = Image.open(uploaded_file)
+    width, height = image.size
 
-    st.subheader("🔍 כוונן את המסגרת סביב הסטיקר:")
-    st.info("ניתן לגרור את הפינות של הריבוע כדי להקטין/להגדיל את אזור החיתוך.")
+    st.image(image, caption="התמונה המקורית", use_container_width=True)
 
-    # הצגת רכיב החיתוך הדינמי שמגיב למגע ואצבע
-    # הרכיב מחזיר אוטומטית את התמונה החתוכה בכל שינוי של המסגרת
-    cropped_img = st_cropper(
-        img,
-        realtime_update=True,
-        box_color="#FF0000",
-        aspect_ratio=None,  # מאפשר מסגרת חופשית (לא רק ריבוע מושלם)
-    )
+    st.subheader("🎛️ כיוונון אזור החיתוך (באחוזים)")
 
+    # סליידרים ידידותיים למגע לבחירת אזור החיתוך באחוזים
+    col1, col2 = st.columns(2)
+
+    with col1:
+        left = st.slider("חיתוך משמאל (ב-%)", 0, 100, 20)
+        right = st.slider("חיתוך מימין (ב-%)", 0, 100, 80)
+
+    with col2:
+        top = st.slider("חיתוך מלמעלה (ב-%)", 0, 100, 20)
+        bottom = st.slider("חיתוך מלמטה (ב-%)", 0, 100, 80)
+
+    # וידוא שהערכים הגיוניים (שלא חותכים הפוך)
+    if left < right and top < bottom:
+        # המרת האחוזים לפיקסלים בפועל
+        box = (
+            int(width * (left / 100)),
+            int(height * (top / 100)),
+            int(width * (right / 100)),
+            int(height * (bottom / 100)),
+        )
+
+        # ביצוע החיתוך
+        cropped_image = image.crop(box)
+
+        st.subheader("🎯 הסטיקר שנבחר:")
+        st.image(cropped_image, use_container_width=True)
+
+        # הכנת התמונה להורדה לטלפון
+        buffer = io.BytesIO()
+        cropped_image.save(buffer, format="PNG")
+        byte_im = buffer.getvalue()
+
+        # כפתור הורדה ישירות לגלריה/קבצים של הטלפון
+        st.download_button(
+            label="💾 שמור את הסטיקר לטלפון",
+            data=byte_im,
+            file_name="my_sticker.png",
+            mime="image/png",
+        )
+    else:
+        st.error(
+            "טווח החיתוך לא תקין. ודא שערך ימין גדול משמאל, וערך למטה גדול מלמעלה."
+        )
     # הצגת התוצאה הסופית
     st.subheader("🎯 הסטיקר שנבחר:")
     st.image(cropped_img, use_container_width=True)
