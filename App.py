@@ -1,39 +1,54 @@
 import io
-import zipfile
-import cv2
-import numpy as np
 import streamlit as st
 from PIL import Image
+# יבוא של רכיב החיתוך הנייד
+from streamlit_image_cropper import st_cropper
 
-st.set_page_config(page_title="מזהה סטיקרים אוטומטי", layout="centered")
-
-st.title("🤖 מזהה ומקצץ סטיקרים אוטומטי")
-st.write(
-    "העלה תמונה של דף עם סטיקרים, והמערכת תזהה ותחתוך את כולם אוטומטית!"
+st.set_page_config(
+    page_title="חיתוך סטיקר עם מסגרת דינמית", layout="centered"
 )
 
+st.title("✂️ חיתוך סטיקר מותאם אישית")
+st.write(
+    "העלה תמונה, והשתמש באצבע כדי להזיז, להגדיל או להקטין את מסגרת החיתוך סביב הסטיקר הנבחר!"
+)
+
+# העלאת תמונה מהטלפון
 uploaded_file = st.file_uploader(
     "בחר תמונת סטיקרים:", type=["jpg", "jpeg", "png"]
 )
 
 if uploaded_file is not None:
-    # 1. קריאת התמונה והמרתה לפורמט ש-OpenCV מבין
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, 1)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # פתיחת התמונה בעזרת Pillow
+    img = Image.open(uploaded_file)
 
-    st.image(img_rgb, caption="התמונה המקורית", use_container_width=True)
+    st.subheader("🔍 כוונן את המסגרת סביב הסטיקר:")
+    st.info("ניתן לגרור את הפינות של הריבוע כדי להקטין/להגדיל את אזור החיתוך.")
 
-    # 2. עיבוד תמונה לצורך זיהוי (הגדרת סף קריטי)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # שימוש ב-Thresh כדי להפריד את הסטיקרים מהרקע (מתאים לרקע בהיר)
-    _, thresh = cv2.threshold(
-        blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    # הצגת רכיב החיתוך הדינמי שמגיב למגע ואצבע
+    # הרכיב מחזיר אוטומטית את התמונה החתוכה בכל שינוי של המסגרת
+    cropped_img = st_cropper(
+        img,
+        realtime_update=True,
+        box_color="#FF0000",
+        aspect_ratio=None,  # מאפשר מסגרת חופשית (לא רק ריבוע מושלם)
     )
 
-    # 3. מציאת קווי מתאר (Contours)
+    # הצגת התוצאה הסופית
+    st.subheader("🎯 הסטיקר שנבחר:")
+    st.image(cropped_img, use_container_width=True)
+
+    # הכנת הקובץ להורדה ישירות לגלריה של הטלפון
+    buffer = io.BytesIO()
+    cropped_img.save(buffer, format="PNG")
+    byte_im = buffer.getvalue()
+
+    st.download_button(
+        label="💾 שמור את הסטיקר לטלפון",
+        data=byte_im,
+        file_name="my_sticker.png",
+        mime="image/png",
+    )
     contours, _ = cv2.findContours(
         thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
